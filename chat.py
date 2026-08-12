@@ -1,60 +1,50 @@
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 import ollama
 
-# Pilihan model ringan yang udah lu pull
+app = FastAPI()
+
+# Mengizinkan akses dari browser (CORS)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 MODEL_NAME = 'llama3.2:1b'
 
-# Inisialisasi riwayat chat
-# Lu bisa atur 'system' prompt di sini buat nentuin kepribadian/peran AI-nya
-messages_history = [
-    {
-        'role': 'system',
-        'content': 'Kamu adalah asisten AI yang ramah, santai, dan memberikan jawaban yang singkat serta relevan.'
-    }
-]
+# Format data request dari frontend
+class ChatRequest(BaseModel):
+    message: str
+    history: list = []
 
-print("=== CHATBOT AI LOKAL (Ketik 'exit' atau 'quit' buat keluar) ===")
+@app.get("/")
+def read_root():
+    # Menampilkan file index.html pas URL dibuka di browser
+    return FileResponse("index.html")
 
-while True:
+@app.post("/api/chat")
+def chat_endpoint(req: ChatRequest):
     try:
-        # Mengambil input dari lu
-        user_input = input("\nLu: ").strip()
+        # Susun riwayat pesan + pesan baru dari user
+        messages = [{'role': 'system', 'content': 'Kamu adalah asisten AI yang ramah dan membantu.'}]
+        
+        # Masukkan riwayat sebelumnya
+        for msg in req.history:
+            messages.append(msg)
+            
+        # Masukkan pesan baru
+        messages.append({'role': 'user', 'content': req.message})
 
-        # Cek kalo mau keluar dari program
-        if user_input.lower() in ['exit', 'quit']:
-            print("Chatbot ditutup. Bye!")
-            break
-
-        # Kalo input kosong, abaikan
-        if not user_input:
-            continue
-
-        # Masukkan pesan user ke riwayat chat
-        messages_history.append({
-            'role': 'user',
-            'content': user_input
-        })
-
-        print("AI lagi mikir...", end="\r", flush=True)
-
-        # Kirim seluruh riwayat chat ke Ollama
-        response = ollama.chat(
-            model=MODEL_NAME,
-            messages=messages_history
-        )
-
+        # Kirim ke Ollama
+        response = ollama.chat(model=MODEL_NAME, messages=messages)
         bot_reply = response['message']['content']
 
-        # Masukkan balasan AI ke riwayat chat biar inget konteks
-        messages_history.append({
-            'role': 'assistant',
-            'content': bot_reply
-        })
+        return {"reply": bot_reply}
 
-        # Tampilkan balasan
-        print(f"AI: {bot_reply}")
-
-    except KeyboardInterrupt:
-        print("\nProgram dihentikan.")
-        break
     except Exception as e:
-        print(f"\nError: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
