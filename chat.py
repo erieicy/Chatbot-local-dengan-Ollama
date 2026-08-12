@@ -7,9 +7,9 @@ from pydantic import BaseModel
 import ollama
 
 app = FastAPI(
-    title="Ollama Local AI Chatbot",
-    description="Backend API untuk Chatbot AI Lokal berbasis FastAPI dan Ollama",
-    version="1.0.0"
+    title="Ollama Local AI Chatbot Studio",
+    description="Backend API untuk Chatbot AI Lokal yang cepat dan hemat kata",
+    version="1.1.0"
 )
 
 # Mengizinkan akses CORS dari browser
@@ -23,6 +23,13 @@ app.add_middleware(
 
 DEFAULT_MODEL = 'llama3.2:1b'
 
+SYSTEM_PROMPT_CONCISE = (
+    "Kamu adalah asisten AI lokal yang cerdas, efisien, dan efektif. "
+    "SELALU berikan jawaban yang SINGKAT, PADAT, dan LANGSUNG KE INTI PERTANYAAN. "
+    "Hindari kalimat pembuka/penutup basa-basi (seperti 'Tentu, ini jawabannya' atau 'Semoga membantu'). "
+    "Fokus pada poin-poin utama dan berikan jawaban yang ringkas namun lengkap."
+)
+
 class MessageItem(BaseModel):
     role: str
     content: str
@@ -31,7 +38,26 @@ class ChatRequest(BaseModel):
     message: str
     model: Optional[str] = DEFAULT_MODEL
     history: List[MessageItem] = []
-    system_prompt: Optional[str] = "Kamu adalah asisten AI yang ramah, cerdas, dan membantu."
+    system_prompt: Optional[str] = None
+    response_mode: Optional[str] = "concise" # "concise", "bullet", "code", "detailed"
+    temperature: Optional[float] = 0.5
+    max_tokens: Optional[int] = 1024
+
+def build_system_prompt(req: ChatRequest) -> str:
+    if req.system_prompt and req.system_prompt.strip():
+        base = req.system_prompt.strip()
+    else:
+        base = SYSTEM_PROMPT_CONCISE
+
+    if req.response_mode == "concise":
+        return base + " [Instruksi Khusus: Jawab secara singkat 2-4 kalimat atau poin inti saja tanpa basa-basi.]"
+    elif req.response_mode == "bullet":
+        return base + " [Instruksi Khusus: Format jawaban HANYA berupa daftar poin-poin (bullet points) yang ringkas.]"
+    elif req.response_mode == "code":
+        return base + " [Instruksi Khusus: Utamakan balok kode dan penjelasan singkat per baris.]"
+    elif req.response_mode == "detailed":
+        return base + " [Instruksi Khusus: Berikan penjelasan yang terstruktur dan rinci.]"
+    return base
 
 @app.get("/")
 def read_root():
@@ -100,15 +126,20 @@ def get_models():
 def chat_endpoint(req: ChatRequest):
     """Endpoint chat standar (non-stream)."""
     try:
-        messages = [{'role': 'system', 'content': req.system_prompt}]
+        sys_prompt = build_system_prompt(req)
+        messages = [{'role': 'system', 'content': sys_prompt}]
         for msg in req.history:
             messages.append({'role': msg.role, 'content': msg.content})
         messages.append({'role': 'user', 'content': req.message})
 
         target_model = req.model or DEFAULT_MODEL
-        response = ollama.chat(model=target_model, messages=messages)
+        options = {
+            "temperature": req.temperature or 0.5,
+            "num_predict": req.max_tokens or 1024
+        }
+
+        response = ollama.chat(model=target_model, messages=messages, options=options)
         
-        # Handle responses from different versions of ollama python client
         if isinstance(response, dict):
             bot_reply = response.get('message', {}).get('content', '')
         else:
@@ -123,13 +154,19 @@ def chat_stream_endpoint(req: ChatRequest):
     """Endpoint chat dengan streaming respon (Server-Sent Events / SSE)."""
     def event_stream():
         try:
-            messages = [{'role': 'system', 'content': req.system_prompt}]
+            sys_prompt = build_system_prompt(req)
+            messages = [{'role': 'system', 'content': sys_prompt}]
             for msg in req.history:
                 messages.append({'role': msg.role, 'content': msg.content})
             messages.append({'role': 'user', 'content': req.message})
 
             target_model = req.model or DEFAULT_MODEL
-            stream = ollama.chat(model=target_model, messages=messages, stream=True)
+            options = {
+                "temperature": req.temperature or 0.5,
+                "num_predict": req.max_tokens or 1024
+            }
+
+            stream = ollama.chat(model=target_model, messages=messages, stream=True, options=options)
             
             for chunk in stream:
                 if isinstance(chunk, dict):
@@ -143,4 +180,5 @@ def chat_stream_endpoint(req: ChatRequest):
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+

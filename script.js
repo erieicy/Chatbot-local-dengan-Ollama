@@ -2,6 +2,7 @@
 let chatHistory = [];
 let isGenerating = false;
 let abortController = null;
+let currentResponseMode = 'concise'; // 'concise', 'bullet', 'code', 'detailed'
 
 // DOM Elements
 const chatBox = document.getElementById('chatBox');
@@ -12,6 +13,7 @@ const stopBtn = document.getElementById('stopBtn');
 const welcomeScreen = document.getElementById('welcomeScreen');
 const modelSelect = document.getElementById('modelSelect');
 const activeModelBadge = document.getElementById('activeModelBadge');
+const activeModeBadge = document.getElementById('activeModeBadge');
 const systemPromptInput = document.getElementById('systemPrompt');
 const streamToggle = document.getElementById('streamToggle');
 const statusDot = document.getElementById('statusDot');
@@ -103,6 +105,23 @@ function autoResizeTextarea() {
     userInput.style.height = Math.min(userInput.scrollHeight, 150) + 'px';
 }
 
+// Select Response Mode Pill
+function selectMode(mode, btnElement) {
+    currentResponseMode = mode;
+    document.querySelectorAll('.mode-pill').forEach(btn => btn.classList.remove('active'));
+    if (btnElement) {
+        btnElement.classList.add('active');
+    }
+
+    const modeLabels = {
+        'concise': '🎯 Mode: Singkat & Inti',
+        'bullet': '📋 Mode: Poin-Poin',
+        'code': '💻 Mode: Kode Tech',
+        'detailed': '📚 Mode: Rinci'
+    };
+    activeModeBadge.textContent = modeLabels[mode] || '🎯 Mode: Singkat & Inti';
+}
+
 // Health Check
 async function checkOllamaHealth() {
     try {
@@ -191,11 +210,20 @@ async function handleSend(e) {
     abortController = new AbortController();
 
     try {
+        let success = false;
         if (isStream) {
-            await handleStreamingChat(text, model, systemPrompt, bubbleEl, messageId);
-        } else {
+            try {
+                success = await handleStreamingChat(text, model, systemPrompt, bubbleEl, messageId);
+            } catch (err) {
+                console.warn('Streaming gagal, beralih ke mode standar:', err);
+            }
+        }
+        
+        // Fallback jika stream tidak jalan atau tidak mengembalikan teks
+        if (!success) {
             await handleStandardChat(text, model, systemPrompt, bubbleEl, messageId);
         }
+
     } catch (err) {
         if (err.name === 'AbortError') {
             bubbleEl.innerHTML += '<p><i>[Generasi dihentikan oleh pengguna]</i></p>';
@@ -218,7 +246,8 @@ async function handleStandardChat(message, model, systemPrompt, bubbleEl, messag
             message: message,
             model: model,
             history: chatHistory,
-            system_prompt: systemPrompt
+            system_prompt: systemPrompt,
+            response_mode: currentResponseMode
         }),
         signal: abortController.signal
     });
@@ -238,8 +267,9 @@ async function handleStandardChat(message, model, systemPrompt, bubbleEl, messag
     chatHistory.push({ role: 'user', content: message });
     chatHistory.push({ role: 'assistant', content: replyText });
     
-    // Add action buttons (copy, regenerate)
+    // Add action buttons (copy, speak, regenerate)
     addMessageActions(messageId, replyText);
+    return true;
 }
 
 // Handle Streaming SSE Chat
@@ -251,13 +281,14 @@ async function handleStreamingChat(message, model, systemPrompt, bubbleEl, messa
             message: message,
             model: model,
             history: chatHistory,
-            system_prompt: systemPrompt
+            system_prompt: systemPrompt,
+            response_mode: currentResponseMode
         }),
         signal: abortController.signal
     });
 
     if (!res.ok) {
-        throw new Error('Gagal melakukan koneksi streaming SSE');
+        return false;
     }
 
     const reader = res.body.getReader();
@@ -302,7 +333,7 @@ async function handleStreamingChat(message, model, systemPrompt, bubbleEl, messa
     }
 
     if (!fullText) {
-        bubbleEl.innerHTML = '<i>(Respons kosong)</i>';
+        return false;
     }
 
     // Save to local history
@@ -310,6 +341,7 @@ async function handleStreamingChat(message, model, systemPrompt, bubbleEl, messa
     chatHistory.push({ role: 'assistant', content: fullText });
 
     addMessageActions(messageId, fullText);
+    return true;
 }
 
 // Append User Message to DOM
@@ -381,22 +413,57 @@ function addMessageActions(messageId, fullText) {
     const actionsEl = document.createElement('div');
     actionsEl.className = 'message-actions';
     
-    // Create copy button
+    // Copy button
     const copyBtn = document.createElement('button');
     copyBtn.className = 'msg-action-btn';
     copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Salin';
     copyBtn.onclick = () => copyText(copyBtn, fullText);
 
-    // Create regenerate button
+    // Speak Audio button (Text To Speech)
+    const speakBtn = document.createElement('button');
+    speakBtn.className = 'msg-action-btn';
+    speakBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Baca';
+    speakBtn.onclick = () => speakText(speakBtn, fullText);
+
+    // Regenerate button
     const regenBtn = document.createElement('button');
     regenBtn.className = 'msg-action-btn';
     regenBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Regenerate';
     regenBtn.onclick = () => regenerateLastResponse();
 
     actionsEl.appendChild(copyBtn);
+    actionsEl.appendChild(speakBtn);
     actionsEl.appendChild(regenBtn);
 
     contentEl.appendChild(actionsEl);
+}
+
+// Text-To-Speech (Suara AI)
+function speakText(btn, text) {
+    if (!('speechSynthesis' in window)) {
+        alert('Browser Anda tidak mendukung Text-to-Speech');
+        return;
+    }
+
+    if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Baca';
+        return;
+    }
+
+    // Strip Markdown symbols for clean audio reading
+    const cleanText = text.replace(/[*_#`~-]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'id-ID';
+    utterance.rate = 1.0;
+
+    btn.innerHTML = '<i class="fa-solid fa-square" style="color: var(--danger-color);"></i> Stop';
+
+    utterance.onend = () => {
+        btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Baca';
+    };
+
+    window.speechSynthesis.speak(utterance);
 }
 
 // Copy Code Block Content
