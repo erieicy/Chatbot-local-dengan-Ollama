@@ -24,6 +24,9 @@
     <div class="glow-orb orb-1"></div>
     <div class="glow-orb orb-2"></div>
 
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <div class="app-layout">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
@@ -67,8 +70,8 @@
                     <button class="suggestion-chip" onclick="usePrompt('Jelaskan konsep AI dalam 2 kalimat saja.')">
                         <i class="fa-solid fa-bullseye"></i> AI dalam 2 Kalimat
                     </button>
-                    <button class="suggestion-chip" onclick="usePrompt('Tuliskan kode Python sederhana untuk Web Scraping.')">
-                        <i class="fa-solid fa-code"></i> Script Python Web Scraper
+                    <button class="suggestion-chip" onclick="usePrompt('Tuliskan kode C++ sederhana untuk Hello World.')">
+                        <i class="fa-solid fa-code"></i> Script C++ Hello World
                     </button>
                     <button class="suggestion-chip" onclick="usePrompt('Bantu buatkan poin-poin ide bisnis digital modal kecil.')">
                         <i class="fa-solid fa-lightbulb"></i> Poin Ide Bisnis Digital
@@ -83,7 +86,7 @@
             <div class="sidebar-section">
                 <h3><i class="fa-solid fa-sliders"></i> Mode & Persona</h3>
                 <div class="setting-item">
-                    <label for="systemPrompt">System Prompt Costum:</label>
+                    <label for="systemPrompt">System Prompt Custom:</label>
                     <textarea id="systemPrompt" rows="3" placeholder="Gunakan prompt default yang singkat dan langsung ke inti..."></textarea>
                 </div>
                 <div class="setting-item inline">
@@ -104,7 +107,7 @@
         <main class="main-content">
             <!-- Top Navbar -->
             <header class="top-navbar">
-                <button class="icon-btn toggle-sidebar-btn" id="toggleSidebarBtn" title="Buka Menu">
+                <button class="icon-btn toggle-sidebar-btn" id="toggleSidebarBtn" title="Buka/Tutup Sidebar">
                     <i class="fa-solid fa-bars"></i>
                 </button>
                 
@@ -137,9 +140,9 @@
                             <h4>Jawaban Inti</h4>
                             <p>Tanpa pembuka basa-basi, langsung poin utama</p>
                         </div>
-                        <div class="welcome-card" onclick="usePrompt('Tulis kode JavaScript untuk format tanggal ke Indonesia.')">
+                        <div class="welcome-card" onclick="usePrompt('Tuliskan kode C++ sederhana untuk program penjumlahan dua angka.')">
                             <i class="fa-solid fa-code"></i>
-                            <h4>Solusi Kode</h4>
+                            <h4>Solusi Kode C++</h4>
                             <p>Balok kode bersih siap pakai dengan penjelasannya</p>
                         </div>
                         <div class="welcome-card" onclick="usePrompt('Ringkas konsep Cloud Computing dalam 3 poin.')">

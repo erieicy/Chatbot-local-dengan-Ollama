@@ -42,7 +42,7 @@
     --shadow-md: 0 6px 20px rgba(0,0,0,0.5);
     --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
     
-    --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -103,6 +103,26 @@ body {
     z-index: 1;
 }
 
+/* Mobile Sidebar Backdrop Overlay */
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    z-index: 95;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 /* Sidebar */
 .sidebar {
     width: 320px;
@@ -112,10 +132,18 @@ body {
     flex-direction: column;
     padding: 20px;
     gap: 20px;
-    transition: var(--transition);
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
     z-index: 100;
     overflow-y: auto;
     backdrop-filter: blur(16px);
+    flex-shrink: 0;
+}
+
+/* Desktop Collapsed Sidebar State */
+.sidebar.collapsed {
+    margin-left: -320px;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .sidebar-header {
@@ -161,7 +189,9 @@ body {
 }
 
 .close-sidebar-btn {
-    display: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Buttons */
@@ -409,6 +439,7 @@ input:checked + .slider:before {
     height: 100vh;
     position: relative;
     background-color: transparent;
+    transition: var(--transition);
 }
 
 /* Top Navbar */
@@ -437,7 +468,11 @@ input:checked + .slider:before {
 
 .toggle-sidebar-btn:hover, .icon-btn:hover {
     color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.toggle-sidebar-btn:active {
+    transform: scale(0.92);
 }
 
 .current-chat-info {
@@ -982,22 +1017,22 @@ textarea#userInput {
     to { opacity: 1; }
 }
 
-/* Responsive Adjustments */
+/* Responsive Adjustments for Mobile (< 768px) */
 @media (max-width: 768px) {
     .sidebar {
-        position: absolute;
+        position: fixed;
         top: 0;
-        left: -320px;
+        left: 0;
+        transform: translateX(-100%);
+        margin-left: 0 !important;
         height: 100vh;
         box-shadow: var(--shadow-lg);
+        opacity: 1 !important;
+        pointer-events: auto !important;
     }
     
     .sidebar.active {
-        left: 0;
-    }
-    
-    .close-sidebar-btn {
-        display: block;
+        transform: translateX(0);
     }
 
     .top-navbar {

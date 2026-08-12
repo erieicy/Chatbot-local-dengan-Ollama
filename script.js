@@ -19,6 +19,7 @@ const streamToggle = document.getElementById('streamToggle');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const closeSidebarBtn = document.getElementById('closeSidebarBtn');
 const newChatBtn = document.getElementById('newChatBtn');
@@ -91,10 +92,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Sidebar Toggles
-    toggleSidebarBtn.addEventListener('click', () => sidebar.classList.toggle('active'));
-    closeSidebarBtn.addEventListener('click', () => sidebar.classList.remove('active'));
-    
+    // Sidebar Buka / Tutup Toggle Listeners (Desktop & Mobile)
+    if (toggleSidebarBtn) {
+        toggleSidebarBtn.addEventListener('click', toggleSidebar);
+    }
+    if (closeSidebarBtn) {
+        closeSidebarBtn.addEventListener('click', closeSidebar);
+    }
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', closeSidebar);
+    }
+
     // Model Select Listener
     modelSelect.addEventListener('change', (e) => {
         activeModelBadge.textContent = e.target.value;
@@ -118,6 +126,26 @@ document.addEventListener('DOMContentLoaded', () => {
         chatBox.scrollTop = chatBox.scrollHeight;
     });
 });
+
+// Sidebar Toggle Function (Handles Desktop Collapse & Mobile Slide Overlay)
+function toggleSidebar() {
+    if (window.innerWidth <= 768) {
+        sidebar.classList.toggle('active');
+        if (sidebarOverlay) {
+            sidebarOverlay.classList.toggle('active');
+        }
+    } else {
+        sidebar.classList.toggle('collapsed');
+    }
+}
+
+function closeSidebar() {
+    sidebar.classList.remove('active');
+    sidebar.classList.add('collapsed');
+    if (sidebarOverlay) {
+        sidebarOverlay.classList.remove('active');
+    }
+}
 
 function autoResizeTextarea() {
     userInput.style.height = 'auto';
@@ -187,7 +215,7 @@ function usePrompt(text) {
     autoResizeTextarea();
     userInput.focus();
     if (window.innerWidth <= 768) {
-        sidebar.classList.remove('active');
+        closeSidebar();
     }
 }
 
