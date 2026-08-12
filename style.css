@@ -531,11 +531,13 @@ input:checked + .slider:before {
     flex: 1;
     padding: 28px 36px;
     overflow-y: auto;
+    overflow-x: hidden;        /* Cegah geser horizontal */
     display: flex;
     flex-direction: column;
     gap: 24px;
     scroll-behavior: smooth;
     width: 100%;
+    box-sizing: border-box;
 }
 
 /* Welcome Screen - Expanded */
@@ -627,6 +629,7 @@ input:checked + .slider:before {
     gap: 16px;
     max-width: 100%;
     width: 100%;
+    min-width: 0;              /* Cegah flex item overflow */
     margin: 0 auto;
     animation: messageSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -669,6 +672,8 @@ input:checked + .slider:before {
     gap: 6px;
     max-width: 95%;
     width: 100%;
+    min-width: 0;              /* Wajib agar flex child tidak overflow */
+    overflow: hidden;
 }
 
 .user-row .message-content {
@@ -681,8 +686,12 @@ input:checked + .slider:before {
     border-radius: var(--radius-lg);
     font-size: 0.98rem;
     word-break: break-word;
+    overflow-wrap: anywhere;   /* Paksa wrap teks & kode panjang */
     box-shadow: var(--shadow-sm);
     line-height: 1.7;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* User Message - Tetap Sesuai Keinginan User */
@@ -777,7 +786,9 @@ input:checked + .slider:before {
 .code-block-wrapper pre {
     margin: 0;
     padding: 16px 18px;
-    overflow-x: auto;
+    overflow-x: auto;          /* Scroll horizontal hanya di dalam code block */
+    max-width: 100%;           /* Tidak keluar dari container */
+    box-sizing: border-box;
     font-family: var(--font-code);
     font-size: 0.9rem;
     line-height: 1.6;
