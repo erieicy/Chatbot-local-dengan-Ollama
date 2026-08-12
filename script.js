@@ -58,6 +58,25 @@ renderer.code = function(code, language) {
 };
 marked.use({ renderer });
 
+/**
+ * Preprocess Markdown to prevent HTML DOM from swallowing un-fenced C++ include headers like <iostream>
+ */
+function renderMarkdownSafely(text) {
+    if (!text) return '';
+
+    let formatted = text;
+
+    // Fix un-fenced C++ code snippets containing #include <...>
+    if (formatted.includes('#include') && !formatted.includes('```')) {
+        formatted = '```cpp\n' + formatted + '\n```';
+    } else {
+        // Escape standalone C++ headers outside code blocks so browser doesn't interpret them as HTML tags
+        formatted = formatted.replace(/(^|\s)#include\s*<([a-zA-Z0-9_\.]+)>/g, '$1`#include <$2>`');
+    }
+
+    return marked.parse(formatted);
+}
+
 // On Document Ready
 document.addEventListener('DOMContentLoaded', () => {
     checkOllamaHealth();
@@ -260,8 +279,8 @@ async function handleStandardChat(message, model, systemPrompt, bubbleEl, messag
     const data = await res.json();
     const replyText = data.reply;
 
-    // Render parsed Markdown
-    bubbleEl.innerHTML = marked.parse(replyText);
+    // Render parsed Markdown safely
+    bubbleEl.innerHTML = renderMarkdownSafely(replyText);
     
     // Save to history
     chatHistory.push({ role: 'user', content: message });
@@ -321,8 +340,8 @@ async function handleStreamingChat(message, model, systemPrompt, bubbleEl, messa
                             isFirstChunk = false;
                         }
                         fullText += parsed.content;
-                        // Render formatted Markdown on the fly
-                        bubbleEl.innerHTML = marked.parse(fullText);
+                        // Render formatted Markdown safely on the fly
+                        bubbleEl.innerHTML = renderMarkdownSafely(fullText);
                         chatBox.scrollTop = chatBox.scrollHeight;
                     }
                 } catch (e) {
