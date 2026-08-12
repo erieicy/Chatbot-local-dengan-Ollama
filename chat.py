@@ -1,12 +1,18 @@
+from typing import List, Optional
+import json
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 import ollama
 
-app = FastAPI()
+app = FastAPI(
+    title="Ollama Local AI Chatbot",
+    description="Backend API untuk Chatbot AI Lokal berbasis FastAPI dan Ollama",
+    version="1.0.0"
+)
 
-# Mengizinkan akses dari browser (CORS)
+# Mengizinkan akses CORS dari browser
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,36 +21,126 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MODEL_NAME = 'llama3.2:1b'
+DEFAULT_MODEL = 'llama3.2:1b'
 
-# Format data request dari frontend
+class MessageItem(BaseModel):
+    role: str
+    content: str
+
 class ChatRequest(BaseModel):
     message: str
-    history: list = []
+    model: Optional[str] = DEFAULT_MODEL
+    history: List[MessageItem] = []
+    system_prompt: Optional[str] = "Kamu adalah asisten AI yang ramah, cerdas, dan membantu."
 
 @app.get("/")
 def read_root():
-    # Menampilkan file index.html pas URL dibuka di browser
+    """Menampilkan antarmuka utama index.html"""
     return FileResponse("index.html")
+
+@app.get("/style.css")
+def get_css():
+    """Menyajikan stylesheet CSS"""
+    return FileResponse("style.css")
+
+@app.get("/script.js")
+def get_js():
+    """Menyajikan skrip JavaScript"""
+    return FileResponse("script.js")
+
+@app.get("/api/health")
+def health_check():
+    """Mengecek apakah Ollama server siap dan aktif."""
+    try:
+        models_response = ollama.list()
+        models_list = []
+        if isinstance(models_response, dict) and "models" in models_response:
+            models_list = [m.get("name", "") for m in models_response["models"]]
+        elif hasattr(models_response, "models"):
+            models_list = [getattr(m, "model", getattr(m, "name", str(m))) for m in models_response.models]
+        
+        return {
+            "status": "online",
+            "ollama": "connected",
+            "available_models": models_list
+        }
+    except Exception as e:
+        return {
+            "status": "warning",
+            "ollama": "disconnected",
+            "error": str(e),
+            "available_models": []
+        }
+
+@app.get("/api/models")
+def get_models():
+    """Mengambil daftar model yang terinstall di Ollama."""
+    try:
+        models_response = ollama.list()
+        models = []
+        if isinstance(models_response, dict) and "models" in models_response:
+            for item in models_response["models"]:
+                models.append({
+                    "name": item.get("name") or item.get("model"),
+                    "size": item.get("size", 0)
+                })
+        elif hasattr(models_response, "models"):
+            for m in models_response.models:
+                models.append({
+                    "name": getattr(m, "model", getattr(m, "name", str(m))),
+                    "size": getattr(m, "size", 0)
+                })
+        if not models:
+            models = [{"name": DEFAULT_MODEL, "size": 0}]
+        return {"models": models}
+    except Exception as e:
+        return {"models": [{"name": DEFAULT_MODEL, "size": 0}], "error": str(e)}
 
 @app.post("/api/chat")
 def chat_endpoint(req: ChatRequest):
+    """Endpoint chat standar (non-stream)."""
     try:
-        # Susun riwayat pesan + pesan baru dari user
-        messages = [{'role': 'system', 'content': 'Kamu adalah asisten AI yang ramah dan membantu.'}]
-        
-        # Masukkan riwayat sebelumnya
+        messages = [{'role': 'system', 'content': req.system_prompt}]
         for msg in req.history:
-            messages.append(msg)
-            
-        # Masukkan pesan baru
+            messages.append({'role': msg.role, 'content': msg.content})
         messages.append({'role': 'user', 'content': req.message})
 
-        # Kirim ke Ollama
-        response = ollama.chat(model=MODEL_NAME, messages=messages)
-        bot_reply = response['message']['content']
+        target_model = req.model or DEFAULT_MODEL
+        response = ollama.chat(model=target_model, messages=messages)
+        
+        # Handle responses from different versions of ollama python client
+        if isinstance(response, dict):
+            bot_reply = response.get('message', {}).get('content', '')
+        else:
+            bot_reply = response.message.content
 
-        return {"reply": bot_reply}
-
+        return {"reply": bot_reply, "model": target_model}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Ollama error: {str(e)}")
+
+@app.post("/api/chat/stream")
+def chat_stream_endpoint(req: ChatRequest):
+    """Endpoint chat dengan streaming respon (Server-Sent Events / SSE)."""
+    def event_stream():
+        try:
+            messages = [{'role': 'system', 'content': req.system_prompt}]
+            for msg in req.history:
+                messages.append({'role': msg.role, 'content': msg.content})
+            messages.append({'role': 'user', 'content': req.message})
+
+            target_model = req.model or DEFAULT_MODEL
+            stream = ollama.chat(model=target_model, messages=messages, stream=True)
+            
+            for chunk in stream:
+                if isinstance(chunk, dict):
+                    content = chunk.get('message', {}).get('content', '')
+                else:
+                    content = chunk.message.content
+                
+                if content:
+                    yield f"data: {json.dumps({'content': content})}\n\n"
+            yield f"data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
