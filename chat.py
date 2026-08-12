@@ -44,7 +44,7 @@ class ChatRequest(BaseModel):
     system_prompt: Optional[str] = None
     response_mode: Optional[str] = "concise" # "concise", "bullet", "code", "detailed"
     temperature: Optional[float] = 0.5
-    max_tokens: Optional[int] = 1024
+    max_tokens: Optional[int] = 4096
 
 def build_system_prompt(req: ChatRequest) -> str:
     if req.system_prompt and req.system_prompt.strip():
@@ -64,6 +64,68 @@ def build_system_prompt(req: ChatRequest) -> str:
     elif req.response_mode == "detailed":
         return base + " [Instruksi Khusus: Berikan penjelasan yang terstruktur dan rinci.]"
     return base
+
+def estimate_required_tokens(req: ChatRequest) -> int:
+    """
+    Estimasi jumlah token yang dibutuhkan SEBELUM eksekusi,
+    sehingga AI tidak berhenti di tengah jalan karena token habis.
+    Analisa dilakukan berdasarkan: tipe request, panjang pesan, dan mode respons.
+    """
+    msg_lower = req.message.lower()
+    user_max = req.max_tokens or 4096
+
+    # --- Kata kunci penanda kebutuhan token tinggi ---
+    code_keywords = [
+        'cpp', 'c++', 'python', 'java', 'javascript', 'js', 'typescript', 'ts',
+        'golang', 'rust', 'kotlin', 'swift', 'php', 'ruby', 'code', 'kode',
+        'script', 'buatkan', 'bikin', 'buat', 'program', 'fungsi', 'function',
+        'class', 'method', 'implementasi', 'implement', 'algoritma', 'algorithm',
+        'sort', 'search', 'linked list', 'binary tree', 'database', 'query',
+        'api', 'web', 'html', 'css', 'fetch', 'loop', 'rekursi', 'recursion'
+    ]
+    long_keywords = [
+        'jelaskan', 'explain', 'rinci', 'detail', 'lengkap', 'complete', 'full',
+        'tutorial', 'step by step', 'langkah demi langkah', 'cara', 'bagaimana',
+        'perbedaan', 'bandingkan', 'compare', 'dokumentasi', 'semua', 'seluruh',
+        'komprehensif', 'mendalam', 'in depth'
+    ]
+    complex_keywords = [
+        'proyek', 'project', 'aplikasi', 'application', 'app', 'sistem', 'system',
+        'framework', 'arsitektur', 'architecture', 'desain', 'design pattern',
+        'seluruh fitur', 'semua fitur', 'full stack', 'end to end'
+    ]
+
+    is_code    = any(k in msg_lower for k in code_keywords)
+    is_long    = any(k in msg_lower for k in long_keywords)
+    is_complex = any(k in msg_lower for k in complex_keywords)
+    msg_words  = len(req.message.split())
+
+    # --- Tabel estimasi token berdasarkan kompleksitas ---
+    if is_complex or (is_code and is_long):
+        # Proyek besar / kode + penjelasan panjang
+        estimated = 8192
+    elif is_code and msg_words > 20:
+        # Kode sedang-kompleks dengan konteks cukup panjang
+        estimated = 6144
+    elif is_code:
+        # Kode sederhana / snippet
+        estimated = 4096
+    elif is_long or req.response_mode == 'detailed':
+        # Penjelasan rinci
+        estimated = 3072
+    elif req.response_mode == 'bullet':
+        # Poin-poin — biasanya sedang
+        estimated = 2048
+    elif msg_words > 40:
+        # Pesan panjang dari user → respon kemungkinan panjang
+        estimated = 2048
+    else:
+        # Jawaban singkat / concise
+        estimated = 2048
+
+    # Selalu pakai yang LEBIH BESAR antara estimasi dan permintaan user
+    final = max(estimated, user_max)
+    return final
 
 @app.get("/")
 def read_root():
@@ -139,9 +201,10 @@ def chat_endpoint(req: ChatRequest):
         messages.append({'role': 'user', 'content': req.message})
 
         target_model = req.model or DEFAULT_MODEL
+        token_budget = estimate_required_tokens(req)
         options = {
             "temperature": req.temperature or 0.4,
-            "num_predict": req.max_tokens or 1024
+            "num_predict": token_budget
         }
 
         response = ollama.chat(model=target_model, messages=messages, options=options)
@@ -167,9 +230,10 @@ def chat_stream_endpoint(req: ChatRequest):
             messages.append({'role': 'user', 'content': req.message})
 
             target_model = req.model or DEFAULT_MODEL
+            token_budget = estimate_required_tokens(req)
             options = {
                 "temperature": req.temperature or 0.4,
-                "num_predict": req.max_tokens or 1024
+                "num_predict": token_budget
             }
 
             stream = ollama.chat(model=target_model, messages=messages, stream=True, options=options)
