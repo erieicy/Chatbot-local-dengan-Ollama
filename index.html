@@ -3,25 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Local AI Assistant</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Highlight.js CSS for Code Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
-    <title>AI Chatbot Web</title>
-
-        
-
 </head>
 <body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="brand">
+                    <div class="brand-icon">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="brand-text">
+                        <h2>Ollama AI</h2>
+                        <span class="version-tag">Local Studio</span>
+                    </div>
+                </div>
+                <button class="icon-btn close-sidebar-btn" id="closeSidebarBtn" title="Tutup Sidebar">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
 
-<div class="chat-container">
-    <div class="chat-header">Ollama AI Web Chat</div>
-    <div class="chat-box" id="chatBox">
-        <div class="msg bot">Halo! Ada yang bisa dibantu?</div>
-    </div>
-    <div class="input-area">
-        <input type="text" id="userInput" placeholder="Ketik pesan di sini..." onkeypress="if(event.key==='Enter') sendMessage()">
-        <button onclick="sendMessage()">Kirim</button>
-    </div>
-</div>
+            <button class="new-chat-btn" id="newChatBtn">
+                <i class="fa-solid fa-plus"></i> Chat Baru
+            </button>
 
-</body>
+            <!-- Status Box -->
+            <div class="status-card">
+                <div class="status-indicator-wrapper">
+                    <span class="status-dot offline" id="statusDot"></span>
+                    <span class="status-text" id="statusText">Memeriksa Ollama...</span>
+                </div>
+                <div class="model-select-wrapper">
+                    <label for="modelSelect"><i class="fa-solid fa-microchip"></i> Model AI:</label>
+                    <select id="modelSelect" class="model-select">
+                        <option value="llama3.2:1b">llama3.2:1b</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Quick Prompts List -->
+            <div class="sidebar-section">
+                <h3><i class="fa-solid fa-bolt"></i> Contoh Prompt</h3>
+                <div class="prompt-suggestions">
+                    <button class="suggestion-chip" onclick="usePrompt('Jelaskan konsep Artificial Intelligence dalam 3 kalimat sederhana.')">
+                        <i class="fa-solid fa-brain"></i> Konsep AI Sederhana
+                    </button>
+                    <button class="suggestion-chip" onclick="usePrompt('Tuliskan fungsi Python untuk menghitung deret Fibonacci dengan optimasi memoisasi.')">
+                        <i class="fa-solid fa-code"></i> Fungsi Python Fibonacci
+                    </button>
+                    <button class="suggestion-chip" onclick="usePrompt('Bantu saya membuat email profesional untuk izin sakit kepada atasan.')">
+                        <i class="fa-solid fa-envelope"></i> Template Email Izin
+                    </button>
+                    <button class="suggestion-chip" onclick="usePrompt('Berikan 5 ide proyek menarik menggunakan FastAPI dan Ollama.')">
+                        <i class="fa-solid fa-lightbulb"></i> Ide Proyek Local AI
+                    </button>
+                </div>
+            </div>
+
+            <!-- Settings Accordion / System Prompt -->
+            <div class="sidebar-section">
+                <h3><i class="fa-solid fa-sliders"></i> Pengaturan Asisten</h3>
+                <div class="setting-item">
+                    <label for="systemPrompt">System Prompt:</label>
+                    <textarea id="systemPrompt" rows="3" placeholder="Atur persona AI di sini...">Kamu adalah asisten AI yang ramah, cerdas, dan sangat membantu.</textarea>
+                </div>
+                <div class="setting-item inline">
+                    <label for="streamToggle">Streaming Respon:</label>
+                    <label class="switch">
+                        <input type="checkbox" id="streamToggle" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <p><i class="fa-solid fa-shield-halved"></i> 100% Lokal & Privasi Terjaga</p>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="main-content">
+            <!-- Top Navbar -->
+            <header class="top-navbar">
+                <button class="icon-btn toggle-sidebar-btn" id="toggleSidebarBtn" title="Buka Menu">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                
+                <div class="current-chat-info">
+                    <h3 id="chatTitle">Chatbot AI Lokal</h3>
+                    <span class="badge" id="activeModelBadge">llama3.2:1b</span>
+                </div>
+
+                <div class="header-actions">
+                    <button class="action-btn-secondary" id="clearChatHeaderBtn" title="Bersihkan Percakapan">
+                        <i class="fa-solid fa-trash-can"></i> <span>Bersihkan</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Chat Messages Container -->
+            <div class="chat-container" id="chatBox">
+                <!-- Welcome Screen (shown when chat is empty) -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-icon">
+                        <i class="fa-solid fa-sparkles"></i>
+                    </div>
+                    <h2>Selamat Datang di Local AI Chat Studio</h2>
+                    <p>Powered by Ollama & FastAPI. Privasi total, tanpa internet, dan tanpa biaya token.</p>
+                    
+                    <div class="welcome-cards">
+                        <div class="welcome-card" onclick="usePrompt('Jelaskan perbedaan Machine Learning dan Deep Learning.')">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                            <h4>Belajar Konsep</h4>
+                            <p>Penjelasan mudah dan terstruktur untuk berbagai topik</p>
+                        </div>
+                        <div class="welcome-card" onclick="usePrompt('Buat kode JavaScript untuk melakukan dark mode toggle pada halaman web.')">
+                            <i class="fa-solid fa-terminal"></i>
+                            <h4>Coding Assistant</h4>
+                            <p>Tulis, debug, dan refactor kode dalam berbagai bahasa</p>
+                        </div>
+                        <div class="welcome-card" onclick="usePrompt('Beri ide outline untuk artikel blog tentang tren AI tahun 2026.')">
+                            <i class="fa-solid fa-pen-nib"></i>
+                            <h4>Kreativitas & Teks</h4>
+                            <p>Bantu susun artikel, email, naskah, dan ringkasan</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scroll to Bottom Button -->
+            <button class="scroll-bottom-btn hidden" id="scrollBottomBtn" title="Ke Bawah">
+                <i class="fa-solid fa-arrow-down"></i>
+            </button>
+
+            <!-- Input Controls Area -->
+            <div class="input-container">
+                <form class="input-form" id="chatForm" onsubmit="handleSend(event)">
+                    <div class="textarea-wrapper">
+                        <textarea 
+                            id="userInput" 
+                            placeholder="Ketik pesan Anda di sini... (Enter untuk kirim, Shift+Enter untuk baris baru)" 
+                            rows="1"
+                        ></textarea>
+                    </div>
+                    <div class="input-actions">
+                        <button type="submit" id="sendBtn" class="send-btn" title="Kirim Pesan">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                        <button type="button" id="stopBtn" class="stop-btn hidden" onclick="stopGeneration()" title="Hentikan Generasi">
+                            <i class="fa-solid fa-square"></i> Stop
+                        </button>
+                    </div>
+                </form>
+                <div class="input-footer-info">
+                    <span><i class="fa-solid fa-circle-info"></i> AI dapat memberikan jawaban tidak akurat. Selalu verifikasi informasi penting.</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- External JS Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- Custom JS -->
     <script src="script.js"></script>
+</body>
 </html>
