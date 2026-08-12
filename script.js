@@ -36,12 +36,22 @@ marked.setOptions({
 });
 
 // Custom Renderer for Marked to wrap code blocks with Copy header
+// Note: marked v5+ passes a single token object { text, lang, escaped }
 const renderer = new marked.Renderer();
-renderer.code = function(code, language) {
+renderer.code = function(token) {
+    // Support both old API (code, lang) and new API (token object)
+    const code = (typeof token === 'object' && token !== null) ? (token.text || '') : (token || '');
+    const language = (typeof token === 'object' && token !== null) ? (token.lang || '') : (arguments[1] || '');
+
     const validLang = hljs.getLanguage(language) ? language : 'text';
-    const highlightedCode = hljs.getLanguage(validLang) 
-        ? hljs.highlight(code, { language: validLang }).value 
-        : marked.parseInline(code);
+    let highlightedCode;
+    try {
+        highlightedCode = hljs.getLanguage(validLang)
+            ? hljs.highlight(code, { language: validLang }).value
+            : hljs.highlightAuto(code).value;
+    } catch (e) {
+        highlightedCode = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
 
     const codeId = 'code-' + Math.random().toString(36).substr(2, 9);
     
@@ -67,12 +77,24 @@ function renderMarkdownSafely(text) {
 
     let formatted = text;
 
-    // Fix un-fenced C++ code snippets containing #include <...>
+    // Pisahkan code blocks yang sudah ada agar tidak ikut diproses
+    const codeBlockPattern = /(```[\s\S]*?```|`[^`]+`)/g;
+    const codePlaceholders = [];
+    formatted = formatted.replace(codeBlockPattern, (match) => {
+        const idx = codePlaceholders.length;
+        codePlaceholders.push(match);
+        return `\x00CODE${idx}\x00`;
+    });
+
+    // Escape standalone C++ headers di luar code blocks agar tidak dianggap tag HTML
+    formatted = formatted.replace(/(^|\s)#include\s*<([a-zA-Z0-9_\.]+)>/g, '$1`#include <$2>`');
+
+    // Kembalikan code blocks yang sudah dipisahkan
+    formatted = formatted.replace(/\x00CODE(\d+)\x00/g, (_, idx) => codePlaceholders[parseInt(idx)]);
+
+    // Jika tidak ada code fence sama sekali tapi ada #include, wrap sebagai cpp
     if (formatted.includes('#include') && !formatted.includes('```')) {
         formatted = '```cpp\n' + formatted + '\n```';
-    } else {
-        // Escape standalone C++ headers outside code blocks so browser doesn't interpret them as HTML tags
-        formatted = formatted.replace(/(^|\s)#include\s*<([a-zA-Z0-9_\.]+)>/g, '$1`#include <$2>`');
     }
 
     return marked.parse(formatted);
