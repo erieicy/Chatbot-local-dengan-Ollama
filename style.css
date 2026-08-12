@@ -1001,7 +1001,7 @@ input:checked + .slider:before {
 
 /* Input Area - Fullscreen Expansion */
 .input-container {
-    padding: 12px 36px 20px;
+    padding: 12px 36px 28px;
     background: rgba(11, 15, 25, 0.85);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -1098,6 +1098,8 @@ textarea#userInput {
     text-align: center;
     font-size: 0.75rem;
     color: var(--text-muted);
+    padding-bottom: 4px;
+    min-height: 18px;
 }
 
 /* Custom Scrollbars */

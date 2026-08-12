@@ -243,14 +243,12 @@ function selectMode(mode, btnElement) {
 
     const modeLabels = {
         'concise':  '🎯 Mode: Singkat & Inti',
-        'math':     '📐 Mode: Matematika',
         'bullet':   '📋 Mode: Poin-Poin',
         'code':     '💻 Mode: Kode Tech',
         'detailed': '📚 Mode: Rinci',
     };
     const modeFooter = {
         'concise':  'Mode <b>Singkat &amp; Inti</b>',
-        'math':     'Mode <b>Matematika</b> – Anti-Halusinasi Aktif',
         'bullet':   'Mode <b>Poin-Poin</b>',
         'code':     'Mode <b>Kode</b>',
         'detailed': 'Mode <b>Detail</b>',
@@ -262,17 +260,16 @@ function selectMode(mode, btnElement) {
     }
 }
 
-/** Aktifkan mode math lalu isi prompt */
-function useMathMode(text) {
-    const mathPill = document.querySelector('[data-mode="math"]');
-    if (mathPill) selectMode('math', mathPill);
+/** Isi textarea lalu langsung kirim (untuk welcome cards) */
+function usePromptAndSend(text) {
     userInput.value = text;
     autoResizeTextarea();
-    userInput.focus();
     if (window.innerWidth <= 768) closeSidebar();
+    // Sedikit delay agar DOM sempat update sebelum kirim
+    setTimeout(() => handleSend(), 50);
 }
 
-/** Isi textarea dari quick prompt */
+/** Isi textarea dari quick prompt (sidebar chips) */
 function usePrompt(text) {
     userInput.value = text;
     autoResizeTextarea();
