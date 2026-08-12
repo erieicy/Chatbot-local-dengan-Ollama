@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Ollama Local AI Studio - Ultra Modern Glassmorphism & Fullscreen Layout
+   Ollama Local AI Studio v2.0 – Glassmorphism · Math · AI-Powered
    ========================================================================== */
 
 :root {
@@ -18,6 +18,10 @@
     --accent-hover: #4f46e5;
     --accent-glow: rgba(99, 102, 241, 0.4);
     --cyan-glow: rgba(6, 182, 212, 0.35);
+
+    --math-color: #10b981;
+    --math-gradient: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    --math-glow: rgba(16, 185, 129, 0.35);
     
     --text-primary: #f9fafb;
     --text-secondary: #9ca3af;
@@ -183,11 +187,14 @@ body {
 }
 
 .version-tag {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     color: #a855f7;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .close-sidebar-btn {
@@ -431,6 +438,20 @@ input:checked + .slider:before {
     font-size: 0.75rem;
     color: var(--text-muted);
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ai-badge-footer {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #a855f7;
+    letter-spacing: 0.5px;
 }
 
 /* Main Content Area - Fullscreen */
@@ -487,6 +508,26 @@ input:checked + .slider:before {
 .current-chat-info h3 {
     font-size: 1.05rem;
     font-weight: 700;
+}
+
+/* AI Indicator Dot in Navbar */
+.ai-indicator {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--accent-gradient);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #fff;
+    box-shadow: 0 0 12px var(--accent-glow);
+    animation: aiPulse 3s infinite ease-in-out;
+}
+
+@keyframes aiPulse {
+    0%, 100% { box-shadow: 0 0 12px var(--accent-glow); }
+    50%       { box-shadow: 0 0 22px var(--accent-glow), 0 0 40px rgba(99,102,241,0.2); }
 }
 
 .badge {
@@ -580,6 +621,24 @@ input:checked + .slider:before {
     font-size: 1rem;
 }
 
+/* AI Label hero */
+.ai-label-hero {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: var(--radius-full);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.ai-label-hero i {
+    color: var(--accent-color);
+}
+
 .welcome-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -621,6 +680,20 @@ input:checked + .slider:before {
     border-color: var(--accent-color);
     transform: translateY(-4px);
     box-shadow: var(--shadow-md), 0 0 20px var(--accent-glow);
+}
+
+/* Math Card Variant */
+.welcome-card.math-card {
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.welcome-card.math-card i {
+    color: var(--math-color);
+}
+
+.welcome-card.math-card:hover {
+    border-color: var(--math-color);
+    box-shadow: var(--shadow-md), 0 0 20px var(--math-glow);
 }
 
 /* Chat Message Row - Fullscreen Width */
@@ -889,6 +962,12 @@ input:checked + .slider:before {
     box-shadow: 0 0 12px var(--accent-glow);
 }
 
+/* Math mode pill gets green accent when active */
+.mode-pill[data-mode="math"].active {
+    background: var(--math-gradient);
+    box-shadow: 0 0 12px var(--math-glow);
+}
+
 /* Scroll Bottom Button */
 .scroll-bottom-btn {
     position: absolute;
@@ -1044,6 +1123,33 @@ textarea#userInput {
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════
+   KaTeX Math Rendering Overrides
+   ═══════════════════════════════════════════════ */
+
+/* Display math block ($$...$$) */
+.katex-display {
+    margin: 14px 0;
+    padding: 14px 18px;
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    color: var(--text-primary);
+}
+
+/* Inline math */
+.katex {
+    font-size: 1em;
+    color: var(--text-primary);
+}
+
+/* Inline math inside a bubble looks clean */
+.bubble .katex-html {
+    overflow-x: auto;
+    white-space: nowrap;
 }
 
 /* Responsive Adjustments for Mobile (< 768px) */

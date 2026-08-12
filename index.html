@@ -4,18 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ollama Local AI Studio</title>
-    
+    <meta name="description" content="Chatbot AI lokal berbasis Ollama – cepat, akurat, mendukung matematika dan kode. 100% offline.">
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
     <!-- Highlight.js CSS for Code Highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
-    
+
+    <!-- KaTeX for Math Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
@@ -23,6 +27,7 @@
     <!-- Animated Glow Background Orbs -->
     <div class="glow-orb orb-1"></div>
     <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
 
     <!-- Mobile Sidebar Backdrop Overlay -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -37,7 +42,10 @@
                     </div>
                     <div class="brand-text">
                         <h2>Ollama Studio</h2>
-                        <span class="version-tag">Ultra Fast AI</span>
+                        <span class="version-tag">
+                            <i class="fa-solid fa-robot" style="font-size:0.7rem;"></i>
+                            AI-Powered · v2.0
+                        </span>
                     </div>
                 </div>
                 <button class="icon-btn close-sidebar-btn" id="closeSidebarBtn" title="Tutup Sidebar">
@@ -63,10 +71,13 @@
                 </div>
             </div>
 
-            <!-- Quick Prompts List -->
+            <!-- Quick Prompts -->
             <div class="sidebar-section">
                 <h3><i class="fa-solid fa-bolt"></i> Contoh Prompt Inti</h3>
                 <div class="prompt-suggestions">
+                    <button class="suggestion-chip" onclick="usePrompt('Hitung: $\\frac{3^4 - 2^3}{\\sqrt{25}}$ dan tunjukkan langkah-langkahnya.')">
+                        <i class="fa-solid fa-square-root-variable"></i> Contoh Soal Matematika
+                    </button>
                     <button class="suggestion-chip" onclick="usePrompt('Jelaskan konsep AI dalam 2 kalimat saja.')">
                         <i class="fa-solid fa-bullseye"></i> AI dalam 2 Kalimat
                     </button>
@@ -76,18 +87,15 @@
                     <button class="suggestion-chip" onclick="usePrompt('Bantu buatkan poin-poin ide bisnis digital modal kecil.')">
                         <i class="fa-solid fa-lightbulb"></i> Poin Ide Bisnis Digital
                     </button>
-                    <button class="suggestion-chip" onclick="usePrompt('Jelaskan perbedaan HTTP dan HTTPS secara singkat.')">
-                        <i class="fa-solid fa-shield-halved"></i> HTTP vs HTTPS Singkat
-                    </button>
                 </div>
             </div>
 
-            <!-- Settings Accordion / System Prompt -->
+            <!-- Settings / System Prompt -->
             <div class="sidebar-section">
                 <h3><i class="fa-solid fa-sliders"></i> Mode & Persona</h3>
                 <div class="setting-item">
                     <label for="systemPrompt">System Prompt Custom:</label>
-                    <textarea id="systemPrompt" rows="3" placeholder="Gunakan prompt default yang singkat dan langsung ke inti..."></textarea>
+                    <textarea id="systemPrompt" rows="3" placeholder="Kosongkan untuk pakai prompt default yang dioptimasi..."></textarea>
                 </div>
                 <div class="setting-item inline">
                     <label for="streamToggle">Streaming Live SSE:</label>
@@ -99,7 +107,8 @@
             </div>
 
             <div class="sidebar-footer">
-                <p><i class="fa-solid fa-shield-halved"></i> 100% Offline & Hemat Kata</p>
+                <p><i class="fa-solid fa-shield-halved"></i> 100% Offline &amp; Privat</p>
+                <p class="ai-badge-footer"><i class="fa-solid fa-robot"></i> Powered by Ollama AI</p>
             </div>
         </aside>
 
@@ -110,11 +119,14 @@
                 <button class="icon-btn toggle-sidebar-btn" id="toggleSidebarBtn" title="Buka/Tutup Sidebar">
                     <i class="fa-solid fa-bars"></i>
                 </button>
-                
+
                 <div class="current-chat-info">
+                    <div class="ai-indicator">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
                     <h3 id="chatTitle">Chatbot AI Lokal</h3>
                     <span class="badge" id="activeModelBadge">llama3.2:1b</span>
-                    <span class="badge mode-badge" id="activeModeBadge">🎯 Mode: Singkat & Inti</span>
+                    <span class="badge mode-badge" id="activeModeBadge">🎯 Mode: Singkat &amp; Inti</span>
                 </div>
 
                 <div class="header-actions">
@@ -126,29 +138,33 @@
 
             <!-- Chat Messages Container -->
             <div class="chat-container" id="chatBox">
-                <!-- Welcome Screen (shown when chat is empty) -->
+                <!-- Welcome Screen -->
                 <div class="welcome-screen" id="welcomeScreen">
                     <div class="welcome-icon">
-                        <i class="fa-solid fa-bolt-lightning"></i>
+                        <i class="fa-solid fa-robot"></i>
                     </div>
                     <h2>Local AI Studio</h2>
-                    <p>Respon Super Cepat, Langsung ke Inti & Tanpa Basa-basi</p>
-                    
+                    <p>Respon Cepat · Matematika Akurat · Kode Siap Pakai</p>
+                    <div class="ai-label-hero">
+                        <i class="fa-solid fa-microchip-ai"></i>
+                        <span>Ditenagai oleh Ollama + Model AI Lokal</span>
+                    </div>
+
                     <div class="welcome-cards">
+                        <div class="welcome-card math-card" onclick="useMathMode('Hitung integral dari $x^2 + 3x - 5$ terhadap $x$. Tunjukkan langkahnya.')">
+                            <i class="fa-solid fa-square-root-variable"></i>
+                            <h4>Soal Matematika</h4>
+                            <p>Pangkat, integral, pecahan — langkah demi langkah tanpa halusinasi</p>
+                        </div>
                         <div class="welcome-card" onclick="usePrompt('Berikan 3 poin inti perbedaan REST API dan GraphQL.')">
                             <i class="fa-solid fa-bullseye"></i>
                             <h4>Jawaban Inti</h4>
-                            <p>Tanpa pembuka basa-basi, langsung poin utama</p>
+                            <p>Tanpa basa-basi, langsung ke poin utamanya</p>
                         </div>
                         <div class="welcome-card" onclick="usePrompt('Tuliskan kode C++ sederhana untuk program penjumlahan dua angka.')">
                             <i class="fa-solid fa-code"></i>
-                            <h4>Solusi Kode C++</h4>
-                            <p>Balok kode bersih siap pakai dengan penjelasannya</p>
-                        </div>
-                        <div class="welcome-card" onclick="usePrompt('Ringkas konsep Cloud Computing dalam 3 poin.')">
-                            <i class="fa-solid fa-list-check"></i>
-                            <h4>Poin Ringkas</h4>
-                            <p>Ringkasan terstruktur dan mudah dipahami</p>
+                            <h4>Solusi Kode</h4>
+                            <p>Kode bersih siap pakai dengan penjelasannya</p>
                         </div>
                     </div>
                 </div>
@@ -164,7 +180,10 @@
                 <!-- Response Mode Quick Selector Pills -->
                 <div class="mode-selector-bar">
                     <button class="mode-pill active" data-mode="concise" onclick="selectMode('concise', this)">
-                        <i class="fa-solid fa-bullseye"></i> 🎯 Singkat & Inti
+                        <i class="fa-solid fa-bullseye"></i> 🎯 Singkat &amp; Inti
+                    </button>
+                    <button class="mode-pill" data-mode="math" onclick="selectMode('math', this)">
+                        <i class="fa-solid fa-square-root-variable"></i> 📐 Matematika
                     </button>
                     <button class="mode-pill" data-mode="bullet" onclick="selectMode('bullet', this)">
                         <i class="fa-solid fa-list-ul"></i> 📋 Poin-Poin
@@ -179,9 +198,9 @@
 
                 <form class="input-form" id="chatForm" onsubmit="handleSend(event)">
                     <div class="textarea-wrapper">
-                        <textarea 
-                            id="userInput" 
-                            placeholder="Ketik pertanyaan Anda... (Enter untuk kirim, Shift+Enter untuk baris baru)" 
+                        <textarea
+                            id="userInput"
+                            placeholder="Ketik pertanyaan, soal matematika, atau kode... (Enter kirim, Shift+Enter baris baru)"
                             rows="1"
                         ></textarea>
                     </div>
@@ -195,7 +214,7 @@
                     </div>
                 </form>
                 <div class="input-footer-info">
-                    <span><i class="fa-solid fa-bolt"></i> Mode <b>Singkat & Inti</b> diaktifkan untuk respon cepat tanpa basa-basi.</span>
+                    <span><i class="fa-solid fa-robot"></i> AI Lokal · <span id="footerModeText">Mode <b>Singkat &amp; Inti</b></span> · Semua data tetap di perangkat Anda</span>
                 </div>
             </div>
         </main>
@@ -204,6 +223,9 @@
     <!-- External JS Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- KaTeX for Math Rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
     <!-- Custom JS -->
     <script src="script.js"></script>
 </body>

@@ -9,8 +9,8 @@ import ollama
 
 app = FastAPI(
     title="Ollama Local AI Chatbot Studio",
-    description="Backend API untuk Chatbot AI Lokal yang cepat, pintar, dan mendukung kode C++",
-    version="1.2.0"
+    description="Backend API untuk Chatbot AI Lokal – cepat, akurat, dan mendukung matematika serta kode",
+    version="2.0.0"
 )
 
 # Mengizinkan akses CORS dari browser
@@ -24,38 +24,143 @@ app.add_middleware(
 
 DEFAULT_MODEL = 'llama3.2:1b'
 
+# ──────────────────────────────────────────────
+# SYSTEM PROMPTS
+# ──────────────────────────────────────────────
+
 SYSTEM_PROMPT_CONCISE = (
     "Kamu adalah asisten AI lokal yang cerdas, efisien, dan serba bisa. "
     "SELALU berikan jawaban yang SINGKAT, PADAT, dan LANGSUNG KE INTI PERTANYAAN.\n\n"
     "ATURAN UTAMA PEMROGRAMAN & KODE:\n"
     "1. Jika user meminta kode (C++, Python, Java, JS, dll), KAMU WAJIB MENAMPILKAN BALOK KODE MARKDOWN (contoh: ```cpp ... ```).\n"
     "2. Untuk C++, SELALU sertakan #include <iostream>, int main(), std::cout, dan return 0;\n"
-    "3. Jangan pernah mengosongkan kode atau hanya memberikan teks tanpa contoh kodenya. Berikan kode sederhana yang langsung bisa di-run."
+    "3. Jangan pernah mengosongkan kode atau hanya memberikan teks tanpa contoh kodenya."
 )
+
+# System prompt khusus matematika — sangat terstruktur untuk mengurangi halusinasi
+SYSTEM_PROMPT_MATH = (
+    "Kamu adalah asisten matematika yang SANGAT TELITI dan AKURAT. "
+    "Tugasmu HANYA menjawab soal matematika dengan benar.\n\n"
+    "ATURAN WAJIB:\n"
+    "1. JANGAN PERNAH mengarang atau menebak jawaban. Hitung secara STEP-BY-STEP.\n"
+    "2. Untuk setiap langkah, tulis penjelasan dan persamaannya.\n"
+    "3. Gunakan notasi LaTeX untuk semua ekspresi matematika:\n"
+    "   - Pangkat: $x^2$, $a^n$\n"
+    "   - Pecahan / Pembagian: $\\frac{a}{b}$\n"
+    "   - Akar: $\\sqrt{x}$, $\\sqrt[n]{x}$\n"
+    "   - Perkalian: $a \\times b$ atau $a \\cdot b$\n"
+    "   - Jumlah: $\\sum_{i=1}^{n} i$\n"
+    "   - Integral: $\\int_a^b f(x)dx$\n"
+    "4. Selalu verifikasi jawaban akhirmu dengan substitusi atau pengecekan ulang.\n"
+    "5. Jika soal tidak jelas atau ambigu, katakan demikian — JANGAN mengarang.\n"
+    "6. Jawaban akhir wajib ditulis dalam baris sendiri dengan format: **Jawaban: $...$**\n\n"
+    "DILARANG KERAS:\n"
+    "- Memberikan jawaban tanpa perhitungan\n"
+    "- Mengarang angka yang tidak sesuai dengan perhitungan\n"
+    "- Melewati langkah-langkah penting dalam penyelesaian"
+)
+
+# ──────────────────────────────────────────────
+# DETEKSI JENIS REQUEST
+# ──────────────────────────────────────────────
+
+MATH_KEYWORDS = [
+    # Operasi dasar
+    'hitung', 'calculate', 'berapa', 'hasil', 'nilai', 'pecahan', 'perkalian',
+    'pembagian', 'penjumlahan', 'pengurangan', 'tambah', 'kurang', 'kali', 'bagi',
+    # Aljabar
+    'aljabar', 'algebra', 'persamaan', 'equation', 'fungsi', 'function',
+    'variabel', 'variable', 'faktorkan', 'factor', 'ekspansi', 'expand',
+    'selesaikan', 'solve', 'cari nilai', 'find x', 'find y',
+    # Kalkulus
+    'turunan', 'derivative', 'integral', 'limit', 'diferensial',
+    'kalkulus', 'calculus', 'gradien', 'gradient',
+    # Geometri
+    'luas', 'keliling', 'volume', 'geometri', 'geometry', 'segitiga',
+    'lingkaran', 'persegi', 'kubus', 'bola', 'sudut', 'angle',
+    # Statistik
+    'rata-rata', 'mean', 'median', 'modus', 'mode', 'standar deviasi',
+    'probabilitas', 'probability', 'statistik', 'statistics',
+    # Trigonometri
+    'sin', 'cos', 'tan', 'trigonometri', 'trigonometry', 'sinus', 'cosinus',
+    # Simbol matematika
+    'pangkat', 'akar', 'sqrt', 'kuadrat', 'kubik', 'logaritma', 'log',
+    'mtk', 'matematika', 'math', 'soal', 'rumus', 'formula',
+]
+
+CODING_KEYWORDS = [
+    'cpp', 'c++', 'python', 'java', 'javascript', 'js', 'typescript', 'ts',
+    'golang', 'rust', 'kotlin', 'swift', 'php', 'ruby', 'code', 'kode',
+    'script', 'buatkan', 'bikin', 'buat', 'program', 'fungsi', 'function',
+    'class', 'method', 'implementasi', 'implement', 'algoritma', 'algorithm',
+    'sort', 'search', 'linked list', 'binary tree', 'database', 'query',
+    'api', 'web', 'html', 'css', 'fetch', 'loop', 'rekursi', 'recursion'
+]
+
+LONG_KEYWORDS = [
+    'jelaskan', 'explain', 'rinci', 'detail', 'lengkap', 'complete', 'full',
+    'tutorial', 'step by step', 'langkah demi langkah', 'cara', 'bagaimana',
+    'perbedaan', 'bandingkan', 'compare', 'dokumentasi', 'semua', 'seluruh',
+    'komprehensif', 'mendalam', 'in depth'
+]
+
+COMPLEX_KEYWORDS = [
+    'proyek', 'project', 'aplikasi', 'application', 'app', 'sistem', 'system',
+    'framework', 'arsitektur', 'architecture', 'desain', 'design pattern',
+    'seluruh fitur', 'semua fitur', 'full stack', 'end to end'
+]
+
 
 class MessageItem(BaseModel):
     role: str
     content: str
+
 
 class ChatRequest(BaseModel):
     message: str
     model: Optional[str] = DEFAULT_MODEL
     history: List[MessageItem] = []
     system_prompt: Optional[str] = None
-    response_mode: Optional[str] = "concise" # "concise", "bullet", "code", "detailed"
+    response_mode: Optional[str] = "concise"  # "concise", "bullet", "code", "math", "detailed"
     temperature: Optional[float] = 0.5
     max_tokens: Optional[int] = 4096
 
+
+def detect_math_request(msg_lower: str) -> bool:
+    """Deteksi apakah pesan mengandung soal / pertanyaan matematika."""
+    # Cek keyword matematika
+    if any(k in msg_lower for k in MATH_KEYWORDS):
+        return True
+    # Cek pola angka dengan operator (contoh: "12 + 3 * (4^2)")
+    if re.search(r'\d+\s*[\+\-\*\/\^]\s*\d+', msg_lower):
+        return True
+    # Cek pola LaTeX sederhana
+    if re.search(r'\\\w+|x\^|y\^|\bfrac\b|\bsqrt\b', msg_lower):
+        return True
+    return False
+
+
 def build_system_prompt(req: ChatRequest) -> str:
+    """Bangun system prompt yang tepat berdasarkan mode dan isi pesan."""
+    msg_lower = req.message.lower()
+
+    # Jika user pakai custom prompt, pakai itu
     if req.system_prompt and req.system_prompt.strip():
         base = req.system_prompt.strip()
     else:
-        base = SYSTEM_PROMPT_CONCISE
+        # Tentukan base prompt
+        if req.response_mode == "math" or detect_math_request(msg_lower):
+            base = SYSTEM_PROMPT_MATH
+        else:
+            base = SYSTEM_PROMPT_CONCISE
 
-    msg_lower = req.message.lower()
-    is_coding_request = any(k in msg_lower for k in ['cpp', 'c++', 'c ', 'code', 'kode', 'script', 'python', 'java', 'bikin', 'buatkan', 'fungsi', 'program'])
+    is_coding = any(k in msg_lower for k in CODING_KEYWORDS)
+    is_math   = req.response_mode == "math" or detect_math_request(msg_lower)
 
-    if req.response_mode == "code" or is_coding_request:
+    # Instruksi tambahan berdasarkan mode
+    if is_math and req.response_mode != "code":
+        return SYSTEM_PROMPT_MATH  # Override langsung, tanpa append
+    elif req.response_mode == "code" or is_coding:
         return base + " [Instruksi Khusus: Tampilkan langsung balok kode ```cpp / ```python / dll yang lengkap, sederhana, dan dapat dijalankan!]"
     elif req.response_mode == "concise":
         return base + " [Instruksi Khusus: Jawab secara singkat 2-4 kalimat atau berikan kode ringkas jika diminta.]"
@@ -63,69 +168,68 @@ def build_system_prompt(req: ChatRequest) -> str:
         return base + " [Instruksi Khusus: Format jawaban HANYA berupa daftar poin-poin (bullet points) yang ringkas.]"
     elif req.response_mode == "detailed":
         return base + " [Instruksi Khusus: Berikan penjelasan yang terstruktur dan rinci.]"
+
     return base
+
+
+def get_temperature(req: ChatRequest) -> float:
+    """
+    Tentukan temperature berdasarkan mode:
+    - Math: 0.0 → paling deterministik, hindari halusinasi angka
+    - Code: 0.1 → rendah agar kode lebih konsisten
+    - Concise/Bullet: 0.4 → cukup kreatif tapi tetap akurat
+    - Detailed: 0.5 → lebih bebas untuk penjelasan panjang
+    """
+    if req.response_mode == "math":
+        return 0.0
+    msg_lower = req.message.lower()
+    if detect_math_request(msg_lower):
+        return 0.0
+    if req.response_mode == "code" or any(k in msg_lower for k in CODING_KEYWORDS):
+        return 0.1
+    if req.response_mode == "detailed":
+        return 0.5
+    return req.temperature or 0.4
+
 
 def estimate_required_tokens(req: ChatRequest) -> int:
     """
-    Estimasi jumlah token yang dibutuhkan SEBELUM eksekusi,
-    sehingga AI tidak berhenti di tengah jalan karena token habis.
-    Analisa dilakukan berdasarkan: tipe request, panjang pesan, dan mode respons.
+    Estimasi jumlah token yang dibutuhkan berdasarkan tipe request.
+    Math selalu dapat token lebih untuk mendukung penyelesaian step-by-step.
     """
-    msg_lower = req.message.lower()
-    user_max = req.max_tokens or 4096
-
-    # --- Kata kunci penanda kebutuhan token tinggi ---
-    code_keywords = [
-        'cpp', 'c++', 'python', 'java', 'javascript', 'js', 'typescript', 'ts',
-        'golang', 'rust', 'kotlin', 'swift', 'php', 'ruby', 'code', 'kode',
-        'script', 'buatkan', 'bikin', 'buat', 'program', 'fungsi', 'function',
-        'class', 'method', 'implementasi', 'implement', 'algoritma', 'algorithm',
-        'sort', 'search', 'linked list', 'binary tree', 'database', 'query',
-        'api', 'web', 'html', 'css', 'fetch', 'loop', 'rekursi', 'recursion'
-    ]
-    long_keywords = [
-        'jelaskan', 'explain', 'rinci', 'detail', 'lengkap', 'complete', 'full',
-        'tutorial', 'step by step', 'langkah demi langkah', 'cara', 'bagaimana',
-        'perbedaan', 'bandingkan', 'compare', 'dokumentasi', 'semua', 'seluruh',
-        'komprehensif', 'mendalam', 'in depth'
-    ]
-    complex_keywords = [
-        'proyek', 'project', 'aplikasi', 'application', 'app', 'sistem', 'system',
-        'framework', 'arsitektur', 'architecture', 'desain', 'design pattern',
-        'seluruh fitur', 'semua fitur', 'full stack', 'end to end'
-    ]
-
-    is_code    = any(k in msg_lower for k in code_keywords)
-    is_long    = any(k in msg_lower for k in long_keywords)
-    is_complex = any(k in msg_lower for k in complex_keywords)
+    msg_lower  = req.message.lower()
+    user_max   = req.max_tokens or 4096
+    is_code    = any(k in msg_lower for k in CODING_KEYWORDS)
+    is_math    = req.response_mode == "math" or detect_math_request(msg_lower)
+    is_long    = any(k in msg_lower for k in LONG_KEYWORDS)
+    is_complex = any(k in msg_lower for k in COMPLEX_KEYWORDS)
     msg_words  = len(req.message.split())
 
-    # --- Tabel estimasi token berdasarkan kompleksitas ---
     if is_complex or (is_code and is_long):
-        # Proyek besar / kode + penjelasan panjang
         estimated = 8192
+    elif is_math and is_long:
+        estimated = 6144
+    elif is_math:
+        estimated = 4096  # Math butuh ruang untuk step-by-step
     elif is_code and msg_words > 20:
-        # Kode sedang-kompleks dengan konteks cukup panjang
         estimated = 6144
     elif is_code:
-        # Kode sederhana / snippet
         estimated = 4096
     elif is_long or req.response_mode == 'detailed':
-        # Penjelasan rinci
         estimated = 3072
     elif req.response_mode == 'bullet':
-        # Poin-poin — biasanya sedang
         estimated = 2048
     elif msg_words > 40:
-        # Pesan panjang dari user → respon kemungkinan panjang
         estimated = 2048
     else:
-        # Jawaban singkat / concise
         estimated = 2048
 
-    # Selalu pakai yang LEBIH BESAR antara estimasi dan permintaan user
-    final = max(estimated, user_max)
-    return final
+    return max(estimated, user_max)
+
+
+# ──────────────────────────────────────────────
+# ROUTES
+# ──────────────────────────────────────────────
 
 @app.get("/")
 def read_root():
@@ -152,7 +256,7 @@ def health_check():
             models_list = [m.get("name", "") for m in models_response["models"]]
         elif hasattr(models_response, "models"):
             models_list = [getattr(m, "model", getattr(m, "name", str(m))) for m in models_response.models]
-        
+
         return {
             "status": "online",
             "ollama": "connected",
@@ -195,20 +299,25 @@ def chat_endpoint(req: ChatRequest):
     """Endpoint chat standar (non-stream)."""
     try:
         sys_prompt = build_system_prompt(req)
-        messages = [{'role': 'system', 'content': sys_prompt}]
+        messages   = [{'role': 'system', 'content': sys_prompt}]
         for msg in req.history:
             messages.append({'role': msg.role, 'content': msg.content})
         messages.append({'role': 'user', 'content': req.message})
 
-        target_model = req.model or DEFAULT_MODEL
-        token_budget = estimate_required_tokens(req)
+        target_model  = req.model or DEFAULT_MODEL
+        token_budget  = estimate_required_tokens(req)
+        temperature   = get_temperature(req)
+
         options = {
-            "temperature": req.temperature or 0.4,
-            "num_predict": token_budget
+            "temperature":  temperature,
+            "num_predict":  token_budget,
+            # Untuk math: matikan sampling acak agar deterministik
+            "top_p":        1.0 if temperature == 0.0 else 0.9,
+            "top_k":        1   if temperature == 0.0 else 40,
         }
 
         response = ollama.chat(model=target_model, messages=messages, options=options)
-        
+
         if isinstance(response, dict):
             bot_reply = response.get('message', {}).get('content', '')
         else:
@@ -224,32 +333,35 @@ def chat_stream_endpoint(req: ChatRequest):
     def event_stream():
         try:
             sys_prompt = build_system_prompt(req)
-            messages = [{'role': 'system', 'content': sys_prompt}]
+            messages   = [{'role': 'system', 'content': sys_prompt}]
             for msg in req.history:
                 messages.append({'role': msg.role, 'content': msg.content})
             messages.append({'role': 'user', 'content': req.message})
 
             target_model = req.model or DEFAULT_MODEL
             token_budget = estimate_required_tokens(req)
+            temperature  = get_temperature(req)
+
             options = {
-                "temperature": req.temperature or 0.4,
-                "num_predict": token_budget
+                "temperature": temperature,
+                "num_predict": token_budget,
+                "top_p":       1.0 if temperature == 0.0 else 0.9,
+                "top_k":       1   if temperature == 0.0 else 40,
             }
 
             stream = ollama.chat(model=target_model, messages=messages, stream=True, options=options)
-            
+
             for chunk in stream:
                 if isinstance(chunk, dict):
                     content = chunk.get('message', {}).get('content', '')
                 else:
                     content = chunk.message.content
-                
+
                 if content:
                     yield f"data: {json.dumps({'content': content})}\n\n"
+
             yield f"data: [DONE]\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-
